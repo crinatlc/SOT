@@ -1,5 +1,5 @@
 ﻿// app.js
-import { STIMS, DESCRIPTION_IMAGE, TEST_IMAGE } from './data.js';
+import { STIMS, TEST_IMAGE } from './data.js';
 
 console.log('App loaded');
 
@@ -7,8 +7,9 @@ console.log('App loaded');
  * Config / Constants *
  **********************/
 const DESCRIPTION_PAGE = {
-  text: 'Vă rugăm citiți cu atenție. Când sunteți pregătit/ă apăsați butonul Următorul.',
-  imageSrc: DESCRIPTION_IMAGE ?? placeholderBanner()
+  text: 'Priviți cu atenție exemplul. În partea stângă vedeți aranjamentul obiectelor, iar în partea dreaptă modul de răspuns prin cercul cu săgeată.',
+  text2: 'În test, veți primi o instrucțiune de tipul: „Imaginați-vă că stați la clopot și sunteți cu fața spre copac. Indicați unde este toba.”',
+  imageSrc: TEST_IMAGE ?? placeholderBanner()
 };
 
 // WebGazer / fixation config defaults
@@ -192,23 +193,56 @@ function renderForm() {
 function renderDescription() {
   app.innerHTML = '';
   const card = el('div', { class: 'card' });
-  card.append(
-    el('h1', {}, 'Exemplu sarcina de test'),
-    el('p', {}, DESCRIPTION_PAGE.text),
-    el('div', { style: 'height:12px' }),
-    el('img', { src: DESCRIPTION_PAGE.imageSrc || placeholderBanner(), alt: 'Imagine descriere' }),
-    el('div', { class: 'actions' },
-      /*el('button', { onclick: () => { state.page = 'form'; render(); } }, 'Back'),*/
+  card.append(el('h1', {}, 'Exemplu de sarcină'));
+
+  const grid = el('div', { class: 'grid4' });
+  const example = state.tests[0];
+
+  const lt = el('div', { class: 'cell' });
+  lt.append(el('img', { src: DESCRIPTION_PAGE.imageSrc || placeholderBanner(), alt: 'Imagine descriere' }));
+
+  const rt = el('div', { class: 'cell' });
+  const canvasWrap = el('div', { class: 'canvas-wrap' });
+  const canvas = el('canvas', { class: 'circle-canvas' });
+  canvasWrap.append(canvas);
+  rt.append(canvasWrap);
+
+  const lb = el('div', { class: 'cell', style: 'display:flex;flex-direction:column;' });
+  const descStyle = 'font-size:16px;line-height:1.5;margin:0;';
+  lb.append(
+    el('h3', {}, 'Instrucțiuni'),
+    el('div', { style: 'display:flex;flex-direction:column;gap:10px;' },
+      el('p', { style: descStyle }, DESCRIPTION_PAGE.text),
+      el('p', { style: descStyle }, DESCRIPTION_PAGE.text2)
+    )
+  );
+
+  const rb = el('div', { class: 'cell', style: 'display:flex;flex-direction:column;justify-content:flex-end;align-items:flex-end;' });
+  rb.append(
+    el('div', { class: 'actions', style: 'margin-top:0;' },
       el('button', {
-       class: 'primary',
-       onclick: () => {
-        state.page = 'calibInfo';
-        render();
-      }
+        class: 'primary',
+        onclick: () => {
+          state.page = 'calibInfo';
+          render();
+        }
       }, 'Instrucțiuni calibrare')
     )
   );
+
+  grid.append(lt, rt, lb, rb);
+  card.append(grid);
   app.append(card);
+
+  const dpr = Math.max(1, window.devicePixelRatio || 1);
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.floor(rect.width * dpr);
+  canvas.height = Math.floor(rect.height * dpr);
+
+  if (example && example.userAngleDeg == null && example.expectedAngle != null) {
+    example.userAngleDeg = example.expectedAngle;
+  }
+  drawCircle(canvas, 0);
 }
 
 function renderCalibrationInfo() {
@@ -1136,9 +1170,12 @@ async function submitSOTDataToGoogleSheets() {
     throw new Error('Setează GOOGLE_SHEETS_WEBAPP_URL în app.js');
   }
   const { sotHeader, sotRow } = buildSOTDataRow();
+  const now = new Date();
+  const pad2 = (n) => String(n).padStart(2, '0');
+  const timestamp = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())} ${pad2(now.getHours())}:${pad2(now.getMinutes())}:${pad2(now.getSeconds())}`;
   const payload = {
-    header: sotHeader,
-    row: sotRow,
+    header: ['timestamp', ...sotHeader],
+    row: [timestamp, ...sotRow],
   };
   const body = new URLSearchParams({
     payload: JSON.stringify(payload)
