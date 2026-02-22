@@ -1,0 +1,146 @@
+
+:root {
+  --gap: 12px;
+  --accent: #0b5fff;
+  --muted: #666;
+  --border: #ddd;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+  color: #222;
+  background: #fafafa;
+}
+
+body { overflow: hidden; }
+
+#app { height: 100vh; padding: 0; max-width: none; }
+
+h1, h2, h3 { margin: 0 0 12px; }
+
+.card { height: 100vh; border: 0; border-radius: 0; padding: 12px; box-sizing: border-box; }
+
+.row { display: flex; gap: var(--gap); flex-wrap: wrap; }
+.row > * { flex: 1 1 240px; }
+.field { display: grid; gap: 6px; margin-bottom: 12px; }
+label { font-weight: 600; }
+input[type="text"], input[type="number"], select, textarea {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+textarea { min-height: 80px; resize: vertical; }
+.actions {
+  display: flex;
+  gap: var(--gap);
+  margin-top: 16px;
+}
+button {
+  font: inherit;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+}
+button.primary {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: #fff;
+}
+button:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.grid4 {
+  display: grid;
+  grid-template-columns: 60% 40%;
+  grid-template-rows: 75% 25%;
+  gap: var(--gap);
+  height: 90vh;
+  min-height: 520px;
+}
+.cell {
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 8px;
+  background: #fff;
+  overflow: auto;
+}
+.cell h3 { margin-bottom: 8px; }
+.cell img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  border-radius: 8px;
+}
+.canvas-wrap {
+  position: relative;
+  height: 100%;
+  width: 100%;
+}
+.circle-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  background: #fdfdfd;
+  border-radius: 8px;
+}
+.hint { color: var(--muted); font-size: 0.9em; }
+
+.summary-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+}
+.summary-table th, .summary-table td {
+  border: 1px solid var(--border);
+  padding: 8px;
+  text-align: left;
+}
+.summary-table th {
+  background: #f5f7ff;
+}
+.pill {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #eef2ff;
+  border: 1px solid #dde3ff;
+  color: #2b3cff;
+  font-size: 0.85em;
+}
+
+#calArea { height: 100%; }
+
+/* Summary page fixes */
+.summary-table {
+  max-height: 45vh;
+  overflow: auto;
+  display: block;
+}
+
+.summary-table thead,
+.summary-table tbody tr {
+  display: table;
+  width: 100%;
+  table-layout: fixed;
+}
+
+.summary-table tbody {
+  display: block;
+  max-height: 40vh;
+  overflow-y: auto;
+}
+
+/* Ensure action buttons stay visible */
+.summary-actions,
+.actions {
+  position: sticky;
+  bottom: 0;
+  background: #fff;
+  padding-top: 12px;
+}
+
+
