@@ -45,6 +45,7 @@ const CAL_VALIDATION_PASS_AVG_PX = 140;
 const GOOGLE_SHEETS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxviFtlgfUzUIcQWnZZxqh4l62DSOM2RiaZWRNX36oe9g_QWvQMi4im5mdrI4DT9kkSUQ/exec'; // ex: https://script.google.com/macros/s/XXX/exec
 // Backward-compat alias for older calibration paths.
 const CAL_POINTS = CAL_TARGETS.map(t => [t.px, t.py]);
+const SKIP_CALIBRATION = true;
 
 /**********************
  * Global App State   *
@@ -52,12 +53,14 @@ const CAL_POINTS = CAL_TARGETS.map(t => [t.px, t.py]);
 const state = {
   // state.page initial
  
-  page: 'consent', // 'form' | 'desc' | 'calibInfo' | 'calibration' | 'test' | 'summary'
+  page: 'consent', // 'form' | 'desc' | 'practiceInfo' | 'practiceDone' | 'calibInfo' | 'calibration' | 'test' | 'summary'
   user: {
     participantId: makeId(),
     age: '',
     gender: '',
-    glasses: 'no',
+    glasses: '',
+    practicedSpatialActivity: '',
+    visualSpatialComputerUse: '',
     fixationMinMs: DEFAULTS.fixationMinMs
   },
 
@@ -80,6 +83,8 @@ const state = {
     text1: s.text1,
     text2: s.text2,
     text3: s.text3,
+    text4: s.text4,
+    text5: s.text5,
     expectedAngle: s.expectedAngle,
     controlLineDraw: s.controlLineDraw,
 
@@ -101,6 +106,7 @@ const state = {
   currentTestIndex: 0,
   // runtime AOI rects on test page
   currentAOIRects: null, // { LT: DOMRect, RT: DOMRect, LB: DOMRect, RB: DOMRect }
+  summarySaveStatus: ''
 };
 
 /**********************
@@ -114,7 +120,7 @@ function applyPageOverrideFromUrl() {
   try {
     const params = new URLSearchParams(window.location.search);
     const p = params.get('page');
-    const allowed = new Set(['consent', 'form', 'desc', 'calibInfo', 'calibration', 'test', 'summary']);
+    const allowed = new Set(['consent', 'form', 'desc', 'practiceInfo', 'practiceDone', 'calibInfo', 'calibration', 'test', 'summary']);
     if (p && allowed.has(p)) state.page = p;
   } catch (_) {
     // Ignore malformed URL params.
@@ -125,10 +131,22 @@ function render() {
   if (state.page === 'consent') renderConsent();
   else if (state.page === 'form') renderForm();
   else if (state.page === 'desc') renderDescription();
+  else if (state.page === 'practiceInfo') renderPracticeInfo();
+  else if (state.page === 'practiceDone') renderPracticeDone();
   else if (state.page === 'calibInfo') renderCalibrationInfo();
   else if (state.page === 'calibration') renderCalibration();
   else if (state.page === 'test') renderTest(state.currentTestIndex);
   else if (state.page === 'summary') renderSummary();
+}
+
+function setWebGazerPredictionPoints(visible) {
+  try {
+    if (window.webgazer && typeof window.webgazer.showPredictionPoints === 'function') {
+      window.webgazer.showPredictionPoints(visible);
+    }
+  } catch (_) {
+    // Ignore WebGazer overlay toggle issues.
+  }
 }
 
 /**********************
@@ -143,47 +161,85 @@ function renderForm() {
   );
 
   const form = el('div', { class: 'row' });
+  const validationMessage = el('p', {
+    class: 'hint',
+    style: 'color:#b42318;min-height:20px;margin:8px 0 0;'
+  }, '');
 
   const col1 = el('div', {});
+  const genderSelect = el('select', { onchange: e => state.user.gender = e.target.value },
+    el('option', { value: '', selected: state.user.gender === '', disabled: true }, 'Selectați o opțiune'),
+    el('option', { value: 'female', selected: state.user.gender === 'female' }, 'Feminin'),
+    el('option', { value: 'male', selected: state.user.gender === 'male' }, 'Masculin'),
+    el('option', { value: 'prefer_not_to_say', selected: state.user.gender === 'prefer_not_to_say' }, 'Prefer să nu spun'),
+  );
   col1.append(
     field('ID participant (automat)', el('input', {
       type: 'text',
       value: state.user.participantId,
       readonly: true
     })),
-    field('Vârstă', el('input', {
+    field('Vârstă (în ani împliniți)', el('input', {
       type: 'number',
       min: 0,
       value: state.user.age,
       placeholder: 'Vârstă',
       oninput: e => state.user.age = e.target.value
     })),
+    field('Gen', genderSelect),
   );
 
   const col2 = el('div', {});
-  const genderSelect = el('select', { onchange: e => state.user.gender = e.target.value },
-    el('option', { value: '', selected: state.user.gender === '' }, 'Selectați genul'),
-    el('option', { value: 'female', selected: state.user.gender === 'female' }, 'Feminin'),
-    el('option', { value: 'male', selected: state.user.gender === 'male' }, 'Masculin'),
-  );
   const glassesSelect = el('select', { onchange: e => state.user.glasses = e.target.value },
-    el('option', { value: 'no', selected: state.user.glasses === 'no' }, 'Nu'),
-    el('option', { value: 'yes', selected: state.user.glasses === 'yes' }, 'Da')
+    el('option', { value: '', selected: state.user.glasses === '', disabled: true }, 'Selectați o opțiune'),
+    el('option', { value: 'glasses', selected: state.user.glasses === 'glasses' }, 'Da, ochelari'),
+    el('option', { value: 'contact_lenses', selected: state.user.glasses === 'contact_lenses' }, 'Da, lentile de contact'),
+    el('option', { value: 'no', selected: state.user.glasses === 'no' }, 'Nu')
+  );
+  const practicedSpatialActivitySelect = el('select', { onchange: e => state.user.practicedSpatialActivity = e.target.value },
+    el('option', { value: '', selected: state.user.practicedSpatialActivity === '', disabled: true }, 'Selectați o opțiune'),
+    el('option', { value: 'yes', selected: state.user.practicedSpatialActivity === 'yes' }, 'Da'),
+    el('option', { value: 'no', selected: state.user.practicedSpatialActivity === 'no' }, 'Nu')
+  );
+  const visualSpatialComputerUseSelect = el('select', { onchange: e => state.user.visualSpatialComputerUse = e.target.value },
+    el('option', { value: '', selected: state.user.visualSpatialComputerUse === '', disabled: true }, 'Selectați o opțiune'),
+    el('option', { value: '5_or_less', selected: state.user.visualSpatialComputerUse === '5_or_less' }, '5 ani sau mai puțin'),
+    el('option', { value: '6_9', selected: state.user.visualSpatialComputerUse === '6_9' }, '6–9 ani'),
+    el('option', { value: '10_or_more', selected: state.user.visualSpatialComputerUse === '10_or_more' }, '10 ani sau mai mult')
   );
 
   col2.append(
-    field('Gen', genderSelect),
-    field('Purtați ochelari', glassesSelect)
+    field('În momentul completării testului, purtați ochelari sau lentile de contact?', glassesSelect),
+    field('Ați practicat în mod regulat, pentru o perioadă de minimum 6 luni și cel puțin de două ori pe săptămână, un sport sau o altă activitate care presupune frecvent orientarea corpului și a propriei poziții în raport cu persoane, obiecte sau repere din spațiu (de exemplu, fotbal, baschet, handbal, volei, tenis, dans, arte marțiale, orientare turistică sau navigație)?', practicedSpatialActivitySelect),
+    field('De câți ani utilizați în mod regulat computerul sau laptopul pentru activități cu componentă vizual-spațială (de exemplu, jocuri video, utilizarea hărților, navigare în medii virtuale, design digital, simulări sau modelare 3D)?', visualSpatialComputerUseSelect)
   );
 
   form.append(col1, col2);
   card.append(form);
+  card.append(validationMessage);
 
   const actions = el('div', { class: 'actions' });
   actions.append(
     el('button', {
       class: 'primary',
-      onclick: () => { state.page = 'desc'; render(); }
+      onclick: () => {
+        const requiredFields = [
+          state.user.age,
+          state.user.gender,
+          state.user.glasses,
+          state.user.practicedSpatialActivity,
+          state.user.visualSpatialComputerUse
+        ];
+        const hasEmptyField = requiredFields.some(value => String(value ?? '').trim() === '');
+        if (hasEmptyField) {
+          validationMessage.textContent = 'Completați toate câmpurile înainte de a continua.';
+          validationMessage.style.display = 'block';
+          return;
+        }
+        validationMessage.style.display = 'none';
+        state.page = SKIP_CALIBRATION ? 'desc' : 'calibInfo';
+        render();
+      }
     }, 'Continuați')
   );
   card.append(actions);
@@ -223,10 +279,11 @@ function renderDescription() {
       el('button', {
         class: 'primary',
         onclick: () => {
-          state.page = 'calibInfo';
+          state.page = 'practiceInfo';
+          state.currentTestIndex = 0;
           render();
         }
-      }, 'Instrucțiuni calibrare')
+      }, 'Continuați')
     )
   );
 
@@ -243,6 +300,49 @@ function renderDescription() {
     example.userAngleDeg = example.expectedAngle;
   }
   drawCircle(canvas, 0);
+}
+
+function renderPracticeInfo() {
+  app.innerHTML = '';
+  const card = el('div', { class: 'card' });
+  card.append(
+    el('h1', {}, 'Acomodare cu testul'),
+    el('p', {}, 'Vor urma 4 sarcini de acomodare cu testul'),
+    el('p', {}, 'Priviți cu atenție exemplul. În partea stângă vedeți aranjamentul obiectelor, iar în partea dreaptă modul de răspuns prin cercul cu săgeată.'),
+    el('p', {}, 'În test, veți primi o instrucțiune de tipul: „Imaginați-vă că stați la clopot și sunteți cu fața spre copac. Indicați unde este toba.”'),
+    el('div', { class: 'actions' },
+      el('button', {
+        class: 'primary',
+        onclick: () => {
+          state.page = 'test';
+          state.currentTestIndex = 0;
+          render();
+        }
+      }, 'Începe testul')
+    )
+  );
+  app.append(card);
+}
+
+function renderPracticeDone() {
+  app.innerHTML = '';
+  const card = el('div', { class: 'card' });
+  card.append(
+    el('h1', {}, 'Trecere la test'),
+    el('p', {}, 'Ati indeplinit cu succes sarcinile de acomodare.'),
+    el('p', {}, 'Vor urma 12 sarcini de test.'),
+    el('div', { class: 'actions' },
+      el('button', {
+        class: 'primary',
+        onclick: () => {
+          state.page = 'test';
+          state.currentTestIndex = 4;
+          render();
+        }
+      }, 'Continuați')
+    )
+  );
+  app.append(card);
 }
 
 function renderCalibrationInfo() {
@@ -477,8 +577,8 @@ function renderCalibration() {
     startBtn.onclick = () => {
       if (phase === 'passed' && validationPassed) {
         if (pollHandle) clearInterval(pollHandle);
-        state.page = 'test';
-        state.currentTestIndex = 0;
+        setWebGazerPredictionPoints(false);
+        state.page = 'desc';
         render();
       } else if (phase === 'failed') {
         renderCalibration();
@@ -532,12 +632,21 @@ lb.append(sentence);
 
   // Right-Bottom: controls
   const rb = el('div', { class: 'cell', id: 'aoiRB' });
+  const testProgress = i >= 4
+    ? el('p', { style: 'margin:0 0 8px;font-weight:600;' }, `${i - 3} din 12`)
+    : el('p', { style: 'margin:0 0 8px;min-height:24px;' }, '');
+  const validationMessage = el('p', {
+    class: 'hint',
+    style: 'color:#b42318;min-height:20px;margin:8px 0 0;'
+  }, '');
 
   const badge = t.userAngleDeg != null
     ? el('span', { class: 'pill' }, ''/*statusText(t)*/)
     : el('span', { class: 'hint' }, '');
 
+  rb.append(testProgress);
   rb.append(badge);
+  rb.append(validationMessage);
 
   const actions = el('div', { class: 'actions' });
   actions.append(
@@ -557,6 +666,11 @@ lb.append(sentence);
     el('button', {
       class: 'primary',
       onclick: () => {
+        if (t.userAngleDeg == null) {
+          validationMessage.textContent = 'Marcați poziția pe cerc înainte de a continua.';
+          return;
+        }
+        validationMessage.textContent = '';
         // compute task metrics
         t.submittedPerfMs = performance.now();
         t.responseTimeMs = (t.startPerfMs != null) ? Math.round(t.submittedPerfMs - t.startPerfMs) : null;
@@ -565,12 +679,14 @@ lb.append(sentence);
         // finalize AOI metrics for this trial
         finalizeTrialAOIs(i);
 
-        if (i < state.tests.length - 1) {
+        if (i === 3) {
+          state.page = 'practiceDone';
+          render();
+        } else if (i < state.tests.length - 1) {
           state.currentTestIndex++;
           renderTest(state.currentTestIndex);
         } else {
-          state.page = 'summary';
-          renderSummary();
+          finishAndShowSummary();
         }
       }
     }, 'Următorul')
@@ -601,34 +717,62 @@ lb.append(sentence);
 function renderSummary() {
   app.innerHTML = '';
   const card = el('div', { class: 'card' });
+  const trials = state.tests.slice(-12);
+  const angularErrors = trials
+    .map(t => Number(t.diffDeg))
+    .filter(v => Number.isFinite(v));
+  const angularErrorMean = angularErrors.length
+    ? angularErrors.reduce((sum, value) => sum + value, 0) / angularErrors.length
+    : null;
   card.append(
     el('h1', {}, 'Vă mulțumim pentru participare!'),
-    el('p', { class: 'hint' }, 'Apăsați butonul de mai jos pentru a salva datele.')
+    el('p', { class: 'hint' }, 'Mai jos este afișată eroarea unghiulară pentru cele 12 sarcini de test.')
   );
-  const submitStatus = el('p', { class: 'hint', id: 'submitStatus' }, '');
-  card.append(submitStatus);
+  card.append(
+    el('p', { style: 'margin:8px 0 0;font-weight:600;' },
+      angularErrorMean != null
+        ? `Media erorii unghiulare: ${formatAngle(angularErrorMean)}°`
+        : 'Media erorii unghiulare: —'
+    )
+  );
 
-  const actions = el('div', { class: 'actions' });
-  actions.append(
-    el('button', { class: 'primary', onclick: exportSOTCSVs }, 'Exportă SOTData'),
-    el('button', {
-      onclick: async (e) => {
-        const btn = e.currentTarget;
-        btn.disabled = true;
-        submitStatus.textContent = 'Se trimite către Google Sheets...';
-        try {
-          await submitSOTDataToGoogleSheets();
-          submitStatus.textContent = 'Date trimise cu succes.';
-        } catch (err) {
-          submitStatus.textContent = `Trimitere eșuată: ${err?.message || String(err)}`;
-          btn.disabled = false;
-        }
-      }
-    }, 'Trimite în Google Sheets')
+  const table = el('table', { class: 'summary-table' });
+  const thead = el('thead', {},
+    el('tr', {},
+      el('th', {}, 'Test'),
+      el('th', {}, 'Eroare unghiulară')
+    )
   );
-  card.append(actions);
+  const tbody = el('tbody', {},
+    ...trials.map((t, idx) => el('tr', {},
+      el('td', {}, String(idx + 1)),
+      el('td', {}, t.diffDeg != null ? `${formatAngle(t.diffDeg)}°` : '—')
+    ))
+  );
+  table.append(thead, tbody);
+  card.append(table);
 
   app.append(card);
+}
+
+async function finishAndShowSummary() {
+  app.innerHTML = '';
+  const card = el('div', { class: 'card' });
+  card.append(
+    el('h1', {}, 'Se salvează datele'),
+    el('p', { class: 'hint' }, 'Așteptați puțin. Datele sunt trimise automat către Google Sheets.')
+  );
+  app.append(card);
+
+  try {
+    await submitSOTDataToGoogleSheets();
+    state.summarySaveStatus = 'Datele au fost trimise automat în Google Sheets.';
+  } catch (err) {
+    state.summarySaveStatus = `Trimiterea automată a eșuat: ${err?.message || String(err)}`;
+  }
+
+  state.page = 'summary';
+  renderSummary();
 }
 
 /************************
@@ -984,8 +1128,8 @@ function drawCircle(canvas, testIndex) {
 
   ctx.fillStyle = '#333';
   ctx.font = `${Math.max(12, Math.floor(r * 0.12))}px sans-serif`;
-  if (t.text1) ctx.fillText(t.text1, cx + 6, cy - 6);
-  if (t.text2) ctx.fillText(t.text2, cx + 6, cy - r + 18);
+  if (t.text4) ctx.fillText(t.text4, cx + 6, cy - 6);
+  if (t.text5) ctx.fillText(t.text5, cx + 6, cy - r + 18);
 
   const showExpected = (t.controlLineDraw === 'Before') ||
                        (t.controlLineDraw === 'After' && t.userAngleDeg != null);
@@ -1148,7 +1292,7 @@ function buildSOTDataRow() {
 
   // 1) SOTData.csv (one line per participant)
   const sotHeader = [
-    'participantId','age','gender','glasses','fixationMinMs',
+    'participantId','age','gender','glasses','practicedSpatialActivity','visualSpatialComputerUse','fixationMinMs',
     'angularErrorMean','angularErrorSD','responseTimeSum',
     'fixDurSum_LT','fixDurSum_RT','fixDurSum_LB','fixDurSum_RB',
     'fixCountSum_LT','fixCountSum_RT','fixCountSum_LB','fixCountSum_RB',
@@ -1156,7 +1300,7 @@ function buildSOTDataRow() {
   ];
 
   const sotRow = [
-    pid, state.user.age, state.user.gender, state.user.glasses, state.user.fixationMinMs,
+    pid, state.user.age, state.user.gender, state.user.glasses, state.user.practicedSpatialActivity, state.user.visualSpatialComputerUse, state.user.fixationMinMs,
     angularErrorMean, angularErrorSD, responseTimeSum,
     fixDurSum.LT, fixDurSum.RT, fixDurSum.LB, fixDurSum.RB,
     fixCountSum.LT, fixCountSum.RT, fixCountSum.LB, fixCountSum.RB,
@@ -1234,6 +1378,9 @@ function el(tag, attrs = {}, ...children) {
   for (const [k, v] of Object.entries(attrs)) {
     if (k === 'style') node.setAttribute('style', v);
     else if (k.startsWith('on')) node[k] = v;
+    else if (typeof v === 'boolean') {
+      if (v) node.setAttribute(k, '');
+    }
     else if (v != null) node.setAttribute(k, v);
   }
   for (const child of children) {

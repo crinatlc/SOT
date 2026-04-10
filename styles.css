@@ -96,13 +96,14 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 .hint { color: var(--muted); font-size: 0.9em; }
 
 .summary-table {
-  width: 100%;
+  width: min(420px, 100%);
   border-collapse: collapse;
   margin-top: 12px;
+  font-size: 0.95rem;
 }
 .summary-table th, .summary-table td {
   border: 1px solid var(--border);
-  padding: 8px;
+  padding: 6px 8px;
   text-align: left;
 }
 .summary-table th {
@@ -119,33 +120,5 @@ button:disabled { opacity: 0.6; cursor: not-allowed; }
 }
 
 #calArea { height: 100%; }
-
-/* Summary page fixes */
-.summary-table {
-  max-height: 45vh;
-  overflow: auto;
-  display: block;
-}
-
-.summary-table thead,
-.summary-table tbody tr {
-  display: table;
-  width: 100%;
-  table-layout: fixed;
-}
-
-.summary-table tbody {
-  display: block;
-  max-height: 40vh;
-  overflow-y: auto;
-}
-
-/* Ensure action buttons stay visible */
-.summary-actions {
-  position: sticky;
-  bottom: 12px;
-  background: #fff;
-  padding-top: 12px;
-}
 
 
