@@ -8,7 +8,6 @@ console.log('App loaded');
  **********************/
 const DESCRIPTION_PAGE = {
   text: 'În partea stângă vedeți aranjamentul obiectelor, iar în partea dreaptă veți răspunde prin marcarea poziției indicate de instrucțiune pe cercul cu săgeată. În acest exemplu, raspunsul este indicat de linia albastră.',
-  text2: 'Veți primi o instrucțiune de tipul:<br>„Imaginați-vă că stați la <strong>clopot</strong> și sunteți cu fața spre <strong>copac</strong>. Indicați unde este <strong>toba</strong>.”',
   imageSrc: TEST_IMAGE ?? placeholderBanner()
 };
 
@@ -273,6 +272,17 @@ function renderDescription() {
 
   const lb = el('div', { class: 'cell', style: 'display:flex;flex-direction:column;' });
   const descStyle = 'font-size:16px;line-height:1.5;margin:0;';
+  const exampleInstruction = el('p', { style: descStyle },
+    'Veți primi o instrucțiune de tipul:',
+    el('br'),
+    '„Imaginați-vă că stați la ',
+    el('strong', {}, example.text1),
+    ' și sunteți cu fața spre ',
+    el('strong', {}, example.text2),
+    '. Indicați unde este ',
+    el('strong', {}, example.text3),
+    '.”'
+  );
   lb.append(
     el('h3', {}, 'Instrucțiuni'),
     el('div', { style: 'display:flex;flex-direction:column;gap:10px;' },
@@ -281,11 +291,7 @@ function renderDescription() {
         p.textContent = DESCRIPTION_PAGE.text;
         return p;
       })(),
-      (() => {
-        const p = el('p', { style: descStyle });
-        p.innerHTML = DESCRIPTION_PAGE.text2;
-        return p;
-      })()
+      exampleInstruction
     )
   );
 
