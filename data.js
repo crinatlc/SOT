@@ -1,8 +1,7 @@
-// data.js
+﻿// data.js
 
 // Your core stimuli, converted to objects
 export const STIMS = [
-  ["-1", "clopotului", "copac", "toba", "clopot", "copac", "306", "Before"],
   ["-2", "tobei", "semafor", "roata", "tobă", "semafor", "57", "After"],
   ["-3", "clopotului", "copac", "butoiul", "clopot", "copac", "326", "After"],
   ["-4", "coșului de gunoi", "tobă", "clopotul", "coș de gunoi", "tobă", "49", "After"],
@@ -12,7 +11,7 @@ export const STIMS = [
   ["4", "tobei", "clopot", "roata", "tobă", "clopot", "165", "None"],
   ["5", "semaforului", "copac", "butoiul", "semafor", "copac", "318", "None"],
   ["6", "semaforului", "clopot", "roata", "semafor", "clopot", "250", "None"],
-  ["7", "butoiului", "coșului de gunoi", "clopotul", "butoi", "coș de gunoi", "333", "None"],
+  ["7", "butoiului", "coșul de gunoi", "clopotul", "butoi", "coș de gunoi", "333", "None"],
   ["8", "coșului de gunoi", "clopot", "semaforul", "coș de gunoi", "clopot", "268", "None"],
   ["9", "roții", "semafor", "copacul", "roată", "semafor", "266", "None"],
   ["10", "butoiului", "tobă", "roata", "butoi", "tobă", "41", "None"],

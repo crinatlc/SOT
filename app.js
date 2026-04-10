@@ -7,8 +7,8 @@ console.log('App loaded');
  * Config / Constants *
  **********************/
 const DESCRIPTION_PAGE = {
-  text: 'Priviți cu atenție exemplul. În partea stângă vedeți aranjamentul obiectelor, iar în partea dreaptă modul de răspuns prin cercul cu săgeată.',
-  text2: 'În test, veți primi o instrucțiune de tipul: „Imaginați-vă că stați la clopot și sunteți cu fața spre copac. Indicați unde este toba.”',
+  text: 'În partea stângă vedeți aranjamentul obiectelor, iar în partea dreaptă veți răspunde prin marcarea poziției indicate de instrucțiune pe cercul cu săgeată. În acest exemplu, raspunsul este indicat de linia albastră.',
+  text2: 'Veți primi o instrucțiune de tipul:<br>„Imaginați-vă că stați la <strong>clopot</strong> și sunteți cu fața spre <strong>copac</strong>. Indicați unde este <strong>toba</strong>.”',
   imageSrc: TEST_IMAGE ?? placeholderBanner()
 };
 
@@ -45,7 +45,7 @@ const CAL_VALIDATION_PASS_AVG_PX = 140;
 const GOOGLE_SHEETS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxviFtlgfUzUIcQWnZZxqh4l62DSOM2RiaZWRNX36oe9g_QWvQMi4im5mdrI4DT9kkSUQ/exec'; // ex: https://script.google.com/macros/s/XXX/exec
 // Backward-compat alias for older calibration paths.
 const CAL_POINTS = CAL_TARGETS.map(t => [t.px, t.py]);
-const SKIP_CALIBRATION = true;
+const SKIP_CALIBRATION = false; // Set to true to skip calibration and go directly to description/practice (for testing purposes). Not recommended for actual data collection.
 
 /**********************
  * Global App State   *
@@ -166,7 +166,7 @@ function renderForm() {
     style: 'color:#b42318;min-height:20px;margin:8px 0 0;'
   }, '');
 
-  const col1 = el('div', {});
+  const col1 = el('div', { style: 'display:flex;flex-direction:column;gap:18px;' });
   const genderSelect = el('select', { onchange: e => state.user.gender = e.target.value },
     el('option', { value: '', selected: state.user.gender === '', disabled: true }, 'Selectați o opțiune'),
     el('option', { value: 'female', selected: state.user.gender === 'female' }, 'Feminin'),
@@ -189,7 +189,7 @@ function renderForm() {
     field('Gen', genderSelect),
   );
 
-  const col2 = el('div', {});
+  const col2 = el('div', { style: 'display:flex;flex-direction:column;gap:12px;' });
   const glassesSelect = el('select', { onchange: e => state.user.glasses = e.target.value },
     el('option', { value: '', selected: state.user.glasses === '', disabled: true }, 'Selectați o opțiune'),
     el('option', { value: 'glasses', selected: state.user.glasses === 'glasses' }, 'Da, ochelari'),
@@ -210,8 +210,16 @@ function renderForm() {
 
   col2.append(
     field('În momentul completării testului, purtați ochelari sau lentile de contact?', glassesSelect),
-    field('Ați practicat în mod regulat, pentru o perioadă de minimum 6 luni și cel puțin de două ori pe săptămână, un sport sau o altă activitate care presupune frecvent orientarea corpului și a propriei poziții în raport cu persoane, obiecte sau repere din spațiu (de exemplu, fotbal, baschet, handbal, volei, tenis, dans, arte marțiale, orientare turistică sau navigație)?', practicedSpatialActivitySelect),
-    field('De câți ani utilizați în mod regulat computerul sau laptopul pentru activități cu componentă vizual-spațială (de exemplu, jocuri video, utilizarea hărților, navigare în medii virtuale, design digital, simulări sau modelare 3D)?', visualSpatialComputerUseSelect)
+    field(el('span', {},
+      'Ați practicat în mod regulat, (pentru o perioadă de minimum 6 luni și cel puțin de două ori pe săptămână), o activitate care presupune frecvent orientarea corpului și a propriei poziții în raport cu persoane sau repere din spațiu?',
+      el('br'),
+      'De exemplu: fotbal, baschet, handbal, volei, tenis, dans, arte marțiale, orientare turistică sau navigație'
+    ), practicedSpatialActivitySelect),
+    field(el('span', {},
+      'De câți ani utilizați în mod regulat computerul sau laptopul pentru activități cu componentă vizual-spațială?',
+      el('br'),
+      'De exemplu: jocuri video, utilizarea hărților, navigare în medii virtuale, design digital, simulări sau modelare 3D'
+    ), visualSpatialComputerUseSelect)
   );
 
   form.append(col1, col2);
@@ -268,8 +276,16 @@ function renderDescription() {
   lb.append(
     el('h3', {}, 'Instrucțiuni'),
     el('div', { style: 'display:flex;flex-direction:column;gap:10px;' },
-      el('p', { style: descStyle }, DESCRIPTION_PAGE.text),
-      el('p', { style: descStyle }, DESCRIPTION_PAGE.text2)
+      (() => {
+        const p = el('p', { style: `${descStyle};white-space:pre-line;` });
+        p.textContent = DESCRIPTION_PAGE.text;
+        return p;
+      })(),
+      (() => {
+        const p = el('p', { style: descStyle });
+        p.innerHTML = DESCRIPTION_PAGE.text2;
+        return p;
+      })()
     )
   );
 
@@ -306,19 +322,23 @@ function renderPracticeInfo() {
   app.innerHTML = '';
   const card = el('div', { class: 'card' });
   card.append(
-    el('h1', {}, 'Acomodare cu testul'),
-    el('p', {}, 'Vor urma 4 sarcini de acomodare cu testul'),
-    el('p', {}, 'Priviți cu atenție exemplul. În partea stângă vedeți aranjamentul obiectelor, iar în partea dreaptă modul de răspuns prin cercul cu săgeată.'),
-    el('p', {}, 'În test, veți primi o instrucțiune de tipul: „Imaginați-vă că stați la clopot și sunteți cu fața spre copac. Indicați unde este toba.”'),
+    el('h1', {}, 'Acomodare cu sarcina de orientare spațială'),
+    el('p', {},
+      'Vor urma ',
+      el('strong', {}, '3 sarcini'),
+      ' de acomodare cu testul.'
+    ),
+    el('p', {}, 'În etapa de acomodare, după marcarea răspunsului, veți primi feedback prin intermediul unei linii care arată poziția corectă conform aranjamentului.'),
     el('div', { class: 'actions' },
       el('button', {
         class: 'primary',
         onclick: () => {
+          state.tests[0].userAngleDeg = null;
           state.page = 'test';
           state.currentTestIndex = 0;
           render();
         }
-      }, 'Începe testul')
+      }, 'Începe acomodarea')
     )
   );
   app.append(card);
@@ -328,15 +348,19 @@ function renderPracticeDone() {
   app.innerHTML = '';
   const card = el('div', { class: 'card' });
   card.append(
-    el('h1', {}, 'Trecere la test'),
-    el('p', {}, 'Ati indeplinit cu succes sarcinile de acomodare.'),
-    el('p', {}, 'Vor urma 12 sarcini de test.'),
+    el('h1', {}, 'Sarcini de orientare spațială pentru măsurare'),
+    el('p', {}, 'Ați indeplinit cu succes sarcinile de acomodare.'),
+    el('p', {},
+      'Vor urma ',
+      el('strong', {}, '12 sarcini'),
+      ' de orientare spațială pentru măsurare.'
+    ),
     el('div', { class: 'actions' },
       el('button', {
         class: 'primary',
         onclick: () => {
           state.page = 'test';
-          state.currentTestIndex = 4;
+          state.currentTestIndex = 3;
           render();
         }
       }, 'Continuați')
@@ -350,9 +374,9 @@ function renderCalibrationInfo() {
   const card = el('div', { class: 'card' });
   card.append(
     el('h1', {}, 'Instrucțiuni calibrare'),
-    el('p', {}, 'În etapa de calibrare vor apărea puncte pe ecran. Privește fiecare punct și apasă pe el.'),
-    el('p', {}, 'Încearcă să menții capul stabil, cu fața spre ecran, în lumină bună.'),
-    el('p', {}, 'După ce completezi toate punctele, butonul de start pentru test devine activ.'),
+    el('p', {}, 'În etapa de calibrare vor apărea puncte pe ecran. Priviți fiecare punct și apasați pe el.'),
+    el('p', {}, 'Încearcați să mențineți capul stabil, cu fața spre ecran, și să priviți fix fiecare punct înainte de a face click.'),
+    el('p', {}, 'Vă rugăm nu vă grăbiți.'),
     el('div', { class: 'actions' },
       el('button', {
         class: 'primary',
@@ -450,8 +474,8 @@ function renderCalibration() {
       }
       if (phase === 'passed') {
         startBtn.disabled = false;
-        startBtn.textContent = 'Începe testele';
-        setCalStatus('Calibrare reușită. Poți începe testul.');
+        startBtn.textContent = 'Continuați';
+        setCalStatus('Calibrare reușită. Poți trece la etapa de acomodare.');
         return;
       }
       if (phase === 'failed') {
@@ -615,7 +639,7 @@ const sentence = el(
   el('strong', {}, t.text2),
   '. Marchează unde este ',
   el('strong', {}, t.text3),
-  '?'
+  '.'
 );
 
 lb.append(sentence);
@@ -632,8 +656,8 @@ lb.append(sentence);
 
   // Right-Bottom: controls
   const rb = el('div', { class: 'cell', id: 'aoiRB' });
-  const testProgress = i >= 4
-    ? el('p', { style: 'margin:0 0 8px;font-weight:600;' }, `${i - 3} din 12`)
+  const testProgress = i >= 3
+    ? el('p', { style: 'margin:0 0 8px;font-weight:600;' }, `${i - 2} din 12`)
     : el('p', { style: 'margin:0 0 8px;min-height:24px;' }, '');
   const validationMessage = el('p', {
     class: 'hint',
@@ -679,7 +703,7 @@ lb.append(sentence);
         // finalize AOI metrics for this trial
         finalizeTrialAOIs(i);
 
-        if (i === 3) {
+        if (i === 2) {
           state.page = 'practiceDone';
           render();
         } else if (i < state.tests.length - 1) {
@@ -760,13 +784,13 @@ async function finishAndShowSummary() {
   const card = el('div', { class: 'card' });
   card.append(
     el('h1', {}, 'Se salvează datele'),
-    el('p', { class: 'hint' }, 'Așteptați puțin. Datele sunt trimise automat către Google Sheets.')
+    el('p', { class: 'hint' }, 'Vă rugăm așteptați puțin. Datele sunt în proces de salvare.')
   );
   app.append(card);
 
   try {
     await submitSOTDataToGoogleSheets();
-    state.summarySaveStatus = 'Datele au fost trimise automat în Google Sheets.';
+    state.summarySaveStatus = 'Datele au fost salvate.';
   } catch (err) {
     state.summarySaveStatus = `Trimiterea automată a eșuat: ${err?.message || String(err)}`;
   }
@@ -1391,7 +1415,10 @@ function el(tag, attrs = {}, ...children) {
 }
 function field(labelText, inputEl) {
   const wrap = el('div', { class: 'field' });
-  wrap.append(el('label', {}, labelText), inputEl);
+  const labelEl = el('label', {});
+  if (labelText?.nodeType) labelEl.append(labelText);
+  else labelEl.append(labelText);
+  wrap.append(labelEl, inputEl);
   return wrap;
 }
 
@@ -1476,38 +1503,40 @@ function renderConsent() {
 
   card.append(
     el('h1', {}, 'Consimțământ informat'),
-    el('p', {}, 
-    'Sunteți invitat(ă) să participați voluntar la un studiu pilot realizat în scop academic. ' +
-    'Scopul acestui studiu este testarea ' +
-    'funcționării unor sarcini computerizate de orientare spațială și a procedurii de colectare ' +
-    'a indicatorilor de comportament vizual prin eye tracking.'
-  ),
-  el('p', {}, 'Participarea presupune:'),
-  el('ul', {},
-    el('li', {}, 'completarea unor întrebări demografice simple;'),
-    el('li', {}, 'parcurgerea etapei de calibrare și acomodarea cu testul;'),
-    el('li', {}, 'rezolvarea a 12 sarcini de orientare spațială.'),
-    
-  ),
-  el('p', {}, 
-    'Important: Pentru participare este necesar un dispozitiv cu cameră web funcțională și ' +
-    'condiții adecvate de iluminare (fața vizibilă, fără lumină puternică din spate), ' +
-    'precum și poziționarea stabilă în fața ecranului.'
-  ),
-
-  el('p', {}, 
-    'Nu se înregistrează și nu se stochează imagini video; sunt colectate exclusiv date anonime ' +
-    'privind comportamentul vizual.'
-  ),
-
-  el('p', {}, 
-    'Durata estimată a participării este de aproximativ 10 minute. ' +
-    'Participarea este voluntară, iar retragerea este posibilă în orice moment, fără consecințe.'
-  ), 
-  
-  el('p', {}, 
-    'Dacă aveți întrebări referitoare la acest studiu, adresa de contact este baciu.crina@gmail.com. ' 
-  ),
+    el('p', {}, 'Mă numesc Crina-Maria Tölcséres, sunt studentă în anul III la Facultatea de Psihologie a Universității Transilvania din Brașov.'),
+    el('p', {}, 'Vă invit să participați la studiul desfășurat pentru realizarea lucrării mele de licență, coordonată de lector dr. Moșoi Adrian Alexandru.'),
+    el('p', {}, 'Scopul acestui studiu este analiza relației dintre nivelul de orientare spațială și indicatorii comportamentului vizual.'),
+    el('p', {},
+      el('strong', {}, 'Important'),
+      ': Pentru participare sunt necesare îndeplinirea următoarelor condiții:'
+    ),
+    el('ul', {},
+      el('li', {},
+        el('strong', {}, 'laptop sau PC cu cameră web funcțională'),
+        ' (vă rog nu completați de pe smartphone);'
+      ),
+      el('li', {}, 'condiții adecvate de iluminare (fața vizibilă, fără lumină puternică din spate);'),
+      el('li', {}, 'poziționarea stabilă în fața ecranului;'),
+      el('li', {}, 'vârsta minimă de 18 ani.')
+    ),
+    el('p', {}, 'Participarea presupune:'),
+    el('ul', {},
+      el('li', {}, 'completarea unor întrebări demografice simple;'),
+      el('li', {}, 'parcurgerea etapei de calibrare și acomodarea cu testul;'),
+      el('li', {}, 'rezolvarea a 12 sarcini de orientare spațială.')
+    ),
+    el('p', {},
+      'Durata estimată a participării este de aproximativ ',
+      el('strong', {}, '10-15 minute'),
+      '.'
+    ),
+    el('p', {}, 'Participarea dumneavoastră este voluntară și anonimă, iar retragerea este posibilă în orice moment, fără consecințe.'),
+    el('p', {}, 'Nu se înregistrează și nu se stochează imagini video; sunt colectate exclusiv date anonime privind comportamentul vizual.'),
+    el('p', {}, 'Informațiile vor fi utilizate numai în scop academic și vor fi analizate la nivel agregat.'),
+    el('p', {},
+      'Dacă aveți întrebări referitoare la acest studiu, adresa de contact este ',
+      el('a', { href: 'mailto:crina.baciu@student.unitbv.ro' }, 'crina.baciu@student.unitbv.ro')
+    ),
     el('label', { style: 'display:flex;gap:10px;align-items:flex-start;margin-top:12px;' },
       chk,
       el('span', {}, 'Sunt de acord să particip.')
