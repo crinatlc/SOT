@@ -33,14 +33,14 @@ const CAL_TARGETS = [
 const CAL_DOT_SIZE_PX = 12;
 const CAL_REQUIRED_CLICKS = 1;
 const CAL_DWELL_MIN_MS = 0;
-const CAL_GAZE_TOLERANCE_PX = 110;
+const CAL_GAZE_TOLERANCE_PX = 160;
 const CAL_VALIDATION_TARGETS = [
   { px: 14, py: 16 },
   { px: 86, py: 16 },
   { px: 14, py: 86 },
   { px: 86, py: 86 },
 ];
-const CAL_VALIDATION_PASS_AVG_PX = 140;
+const CAL_VALIDATION_PASS_AVG_PX = 160;
 const GOOGLE_SHEETS_WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbxviFtlgfUzUIcQWnZZxqh4l62DSOM2RiaZWRNX36oe9g_QWvQMi4im5mdrI4DT9kkSUQ/exec'; // ex: https://script.google.com/macros/s/XXX/exec
 // Backward-compat alias for older calibration paths.
 const CAL_POINTS = CAL_TARGETS.map(t => [t.px, t.py]);
@@ -401,6 +401,7 @@ function renderCalibrationInfo() {
 
 function renderCalibration() {
   app.innerHTML = '';
+  setWebGazerPredictionPoints(false);
   const card = el('div', { class: 'card' });
 
   const wrap = el('div', {
@@ -496,16 +497,19 @@ function renderCalibration() {
       const t = currentTarget();
       if (!t) return;
 
-      area.append(el('button', {
-        type: 'button',
+      area.append(el('div', {
+        role: 'button',
+        tabindex: '0',
+        class: phase === 'validation' ? 'cal-dot cal-dot-validation' : (dwellReady ? 'cal-dot cal-dot-ready' : 'cal-dot'),
         style: `
           position:absolute;left:${t.px}%;top:${t.py}%;
           transform:translate(-50%,-50%);
-          width:${CAL_DOT_SIZE_PX}px;height:${CAL_DOT_SIZE_PX}px;border-radius:999px;
-          border:2px solid ${phase === 'validation' ? '#ea580c' : (dwellReady ? '#16a34a' : '#0b5fff')};
-          background:${phase === 'validation' ? '#ffedd5' : (dwellReady ? '#86efac' : '#dbeafe')};
-          box-shadow:0 0 0 ${dwellReady ? 8 : 5}px ${phase === 'validation' ? 'rgba(249,115,22,.2)' : (dwellReady ? 'rgba(34,197,94,.22)' : 'rgba(59,130,246,.18)')};
-          cursor:pointer;
+          width:${CAL_DOT_SIZE_PX}px;height:${CAL_DOT_SIZE_PX}px;
+          padding:0;margin:0;box-sizing:border-box;
+          border-radius:50%;
+          border:2px solid ${phase === 'validation' ? '#b91c1c' : (dwellReady ? '#991b1b' : '#dc2626')};
+          background:${phase === 'validation' ? '#fca5a5' : (dwellReady ? '#ef4444' : '#f87171')};
+          box-shadow:0 0 0 ${dwellReady ? 8 : 5}px ${phase === 'validation' ? 'rgba(220,38,38,.24)' : (dwellReady ? 'rgba(185,28,28,.28)' : 'rgba(239,68,68,.22)')};
         `,
         onclick: () => {
           const active = currentTarget();
@@ -564,6 +568,12 @@ function renderCalibration() {
           if ((phase === 'passed' || phase === 'failed') && pollHandle) {
             clearInterval(pollHandle);
             pollHandle = null;
+          }
+        },
+        onkeydown: (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            e.currentTarget.click();
           }
         }
       }, ''));
@@ -754,9 +764,10 @@ function renderSummary() {
   const angularErrorMean = angularErrors.length
     ? angularErrors.reduce((sum, value) => sum + value, 0) / angularErrors.length
     : null;
+  const orientationLevel = classifyOrientationLevel(angularErrorMean);
   card.append(
     el('h1', {}, 'Vă mulțumim pentru participare!'),
-    el('p', { class: 'hint' }, 'Mai jos este afișată eroarea unghiulară pentru cele 12 sarcini de test.')
+    el('p', { class: 'hint' }, 'Mai jos este afișată media erorii unghiulare pentru cele 12 sarcini de test.')
   );
   card.append(
     el('p', { style: 'margin:8px 0 0;font-weight:600;' },
@@ -765,24 +776,38 @@ function renderSummary() {
         : 'Media erorii unghiulare: —'
     )
   );
-
-  const table = el('table', { class: 'summary-table' });
-  const thead = el('thead', {},
-    el('tr', {},
-      el('th', {}, 'Test'),
-      el('th', {}, 'Eroare unghiulară')
+  card.append(
+    el('p', { style: 'margin:10px 0 0;font-weight:600;' },
+      angularErrorMean != null
+        ? `Nivel orientativ al orientării spațiale: ${orientationLevel}`
+        : 'Nivel orientativ al orientării spațiale: —'
     )
   );
-  const tbody = el('tbody', {},
-    ...trials.map((t, idx) => el('tr', {},
-      el('td', {}, String(idx + 1)),
-      el('td', {}, t.diffDeg != null ? `${formatAngle(t.diffDeg)}°` : '—')
-    ))
+  card.append(
+    el('p', { class: 'hint', style: 'margin:12px 0 0;max-width:820px;line-height:1.5;' },
+      'Acest nivel este ',
+      el('strong', {}, 'orientativ'),
+      ' și este bazat pe ',
+      el('strong', {}, 'intervale orientative bazate pe literatura de specialitate'),
+      ', nu pe rezultatele sau distribuțiile studiului în curs.'
+    )
   );
-  table.append(thead, tbody);
-  card.append(table);
+  card.append(
+    el('p', { class: 'hint', style: 'margin:8px 0 0;max-width:820px;line-height:1.5;' },
+      'Intervale orientative: ≤ 25° = bun; 25–35° = mediu-bun; 35–50° = mediu; 50–70° = mediu-slab; > 70° = slab.'
+    )
+  );
 
   app.append(card);
+}
+
+function classifyOrientationLevel(meanAngularError) {
+  if (!Number.isFinite(meanAngularError)) return '—';
+  if (meanAngularError <= 25) return 'bun';
+  if (meanAngularError <= 35) return 'mediu-bun';
+  if (meanAngularError <= 50) return 'mediu';
+  if (meanAngularError <= 70) return 'mediu-slab';
+  return 'slab';
 }
 
 async function finishAndShowSummary() {
@@ -918,7 +943,7 @@ async function startWebGazer(statusEl) {
   }
 
   try {
-    if (typeof wg.showPredictionPoints === 'function') wg.showPredictionPoints(true);
+    if (typeof wg.showPredictionPoints === 'function') wg.showPredictionPoints(false);
   } catch (err) {
     console.warn('webgazer prediction points toggle failed:', err);
   }
