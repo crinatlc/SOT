@@ -787,9 +787,9 @@ function renderSummary() {
     el('p', { class: 'hint', style: 'margin:12px 0 0;max-width:820px;line-height:1.5;' },
       'Acest nivel este ',
       el('strong', {}, 'orientativ'),
-      ' și este bazat pe ',
-      el('strong', {}, 'intervale orientative bazate pe literatura de specialitate'),
-      ', nu pe rezultatele sau distribuțiile studiului în curs.'
+      ' fiind bazat pe ',
+      el('strong', {}, 'repere din literatura de specialitate'),
+      ', nu pe distribuțiile studiului în curs.'
     )
   );
   card.append(
